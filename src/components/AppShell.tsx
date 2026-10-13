@@ -19,6 +19,8 @@ const NAV: NavItem[] = [
   { href: "/admin/settings", label: "Settings", adminOnly: true },
 ];
 
+import InstallButton from "@/components/InstallButton";
+
 export default function AppShell({
   role,
   fullName,
@@ -95,6 +97,7 @@ export default function AppShell({
               <div className="truncate text-xs capitalize text-white/45">{role}</div>
             </div>
           </div>
+          <InstallButton />
           <button
             onClick={signOut}
             className="mt-1 w-full rounded-lg px-3 py-2 text-left text-sm text-white/70 transition-colors hover:bg-white/10 hover:text-white"

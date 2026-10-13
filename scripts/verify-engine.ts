@@ -66,7 +66,7 @@ console.log(`Loaded ${sqt.length.toLocaleString()} SQT lines`);
 
 // ---- test TM110 ----
 const tm110 = sqt.filter((l) => l.model === "TM110");
-const rules = DEFAULT_RULES;
+const rules = { ...DEFAULT_RULES, lubricantDiscount: 0.1, otherDiscount: 0.15 };
 
 function assertClose(label: string, got: number, want: number, tol = 0.05) {
   const ok = Math.abs(got - want) <= tol;

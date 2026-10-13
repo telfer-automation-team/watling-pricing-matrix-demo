@@ -45,8 +45,8 @@ export type RuleConfig = {
 };
 
 export const DEFAULT_RULES: RuleConfig = {
-  lubricantDiscount: 0.1,
-  otherDiscount: 0.15,
+  lubricantDiscount: 0,
+  otherDiscount: 0,
   maxLubricantDiscount: 0.2,
   maxOtherDiscount: 0.25,
   minLabourRate: 57.5,

@@ -1,5 +1,5 @@
 "use client";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import Combobox from "@/components/Combobox";
 
 type Part = { partNo: string; description: string; quantity: number; type: string; isFuel: boolean; manual?: boolean; priceOverridden?: boolean; lineRetail?: number; note?: string };
@@ -7,6 +7,8 @@ type Service = { serviceDescription: string; serviceHours: number; labourHours: 
 type VariantBlock = { variant: string; services: Service[] };
 type ManualRow = { variant: string; service: string; partNo: string; description: string; quantity: number; isFuel: boolean; cost: number | null; retail: number | null };
 type Initial = { partNo: string; description: string; quantity: number; isFuel: boolean; cost: number | null; retail: number | null };
+type Occ = { hours: number; label: string; qty: number; cost: number; retail: number };
+type CatalogItem = { partNo: string; description: string; isFuel: boolean; varies: boolean; occ: Occ[] };
 
 const gbp = (n: number) => new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
 
@@ -15,6 +17,7 @@ export default function PartsPage() {
   const [model, setModel] = useState("");
   const [variants, setVariants] = useState<VariantBlock[]>([]);
   const [manualRows, setManualRows] = useState<ManualRow[]>([]);
+  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [variant, setVariant] = useState("");
   const [filter, setFilter] = useState("");
   const [manualOnly, setManualOnly] = useState(false);
@@ -36,13 +39,13 @@ export default function PartsPage() {
   async function loadModel(m: string) {
     setModel(m); setVariant(""); setOpenKey("");
     const d = await fetch(`/api/model-parts?model=${encodeURIComponent(m)}`, { cache: "no-store" }).then((r) => r.json());
-    setVariants(d.variants ?? []); setManualRows(d.manualRows ?? []);
+    setVariants(d.variants ?? []); setManualRows(d.manualRows ?? []); setCatalog(d.catalog ?? []);
     setVariant(d.variants?.[0]?.variant ?? "");
   }
   async function reload() {
     if (!model) return;
     const d = await fetch(`/api/model-parts?model=${encodeURIComponent(model)}`, { cache: "no-store" }).then((r) => r.json());
-    setVariants(d.variants ?? []); setManualRows(d.manualRows ?? []);
+    setVariants(d.variants ?? []); setManualRows(d.manualRows ?? []); setCatalog(d.catalog ?? []);
   }
   async function post(url: string, body: unknown) {
     setBusy(true); setMsg("");
@@ -165,7 +168,7 @@ export default function PartsPage() {
                 {!manualOnly && (
                   <div className="border-t border-[var(--color-line)] px-5 py-3">
                     {addFor === s.serviceDescription ? (
-                      <ManualEditor adding busy={busy}
+                      <ManualEditor adding busy={busy} catalog={catalog} targetHours={s.serviceHours}
                         onSave={async (v) => { if (await post("/api/parts/add", { model, variant, service: s.serviceDescription, ...v })) setAddFor(""); }}
                         onCancel={() => setAddFor("")} />
                     ) : (
@@ -249,10 +252,10 @@ function CatalogueEditor({ part, service, busy, onFuel, onSavePrice, onResetPric
 }
 
 /* ---------- manual part editor (also used for Add) ---------- */
-function ManualEditor({ initial, adding, busy, onSave, onDelete, onCancel }: {
+function ManualEditor({ initial, adding, busy, onSave, onDelete, onCancel, catalog, targetHours }: {
   initial?: Initial; adding?: boolean; busy: boolean;
   onSave: (v: { partNo: string; description: string; quantity: number; isFuel: boolean; cost: number | null; retail: number | null }) => void;
-  onDelete?: () => void; onCancel?: () => void;
+  onDelete?: () => void; onCancel?: () => void; catalog?: CatalogItem[]; targetHours?: number;
 }) {
   const editing = !!initial;
   const [partNo, setPartNo] = useState(initial?.partNo ?? "");
@@ -261,12 +264,37 @@ function ManualEditor({ initial, adding, busy, onSave, onDelete, onCancel }: {
   const [isFuel, setIsFuel] = useState(initial?.isFuel ?? false);
   const [cost, setCost] = useState(initial?.cost != null ? String(initial.cost) : "");
   const [retail, setRetail] = useState(initial?.retail != null ? String(initial.retail) : "");
+  const [pickNote, setPickNote] = useState("");
   return (
     <div>
       {adding && <div className="mb-3 wordmark text-xs text-[var(--color-ink)]">Add a manual part</div>}
       <div className="grid gap-3 sm:grid-cols-2">
         <div><span className="field-label">Part number</span>
-          <input value={partNo} disabled={editing} onChange={(e) => setPartNo(e.target.value)} placeholder="e.g. 333/W5100" className="input input-sm font-mono" />
+          {!editing && catalog ? (
+            <PartPicker value={partNo} catalog={catalog}
+              onPick={(pn, item) => {
+                setPartNo(pn);
+                if (!item) { setPickNote(""); return; }
+                setDescription(item.description); setIsFuel(!!item.isFuel);
+                const occ = item.occ ?? [];
+                let chosen = occ[0];
+                if (targetHours != null && occ.length) {
+                  chosen = occ.reduce((best, o) => Math.abs(o.hours - targetHours) < Math.abs(best.hours - targetHours) ? o : best, occ[0]);
+                }
+                if (chosen) {
+                  setQuantity(String(chosen.qty || 1));
+                  setCost(chosen.cost ? String(chosen.cost) : "");
+                  setRetail(chosen.retail ? String(chosen.retail) : "");
+                  setPickNote(item.varies
+                    ? `Cost taken from the ${chosen.label} — this part is priced differently on other services, so please check and confirm.`
+                    : "Price filled from the file — please check and confirm.");
+                } else {
+                  setPickNote("Please enter the cost and confirm.");
+                }
+              }} />
+          ) : (
+            <input value={partNo} disabled={editing} onChange={(e) => setPartNo(e.target.value)} placeholder="e.g. 333/W5100" className="input input-sm font-mono" />
+          )}
         </div>
         <div><span className="field-label">Description</span>
           <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Part description" className="input input-sm" />
@@ -281,7 +309,8 @@ function ManualEditor({ initial, adding, busy, onSave, onDelete, onCancel }: {
           This is the fuel filter
         </label>
       </div>
-      <p className="mt-2 text-[11px] text-[var(--color-ink-3)]">Leave cost &amp; retail blank to price from the JCB file. Fill them in for off-catalogue parts (these prices are kept across uploads).</p>
+      {pickNote && <p className={`mt-2 rounded-lg border px-3 py-2 text-xs ${pickNote.includes("differently") ? "border-[var(--color-brand)]/40 bg-[var(--color-brand-tint)] text-[var(--color-brand-dark)]" : "border-[var(--color-line)] bg-[var(--color-surface-2)] text-[var(--color-ink-2)]"}`}>{pickNote}</p>}
+      <p className="mt-2 text-[11px] text-[var(--color-ink-3)]">Added parts are saved as manual parts — kept across uploads, and removable/restorable. Clear the cost to price from the JCB file instead.</p>
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <button className="btn-primary px-4 py-2 text-sm disabled:opacity-50" disabled={busy || !partNo.trim()}
           onClick={() => onSave({ partNo: partNo.trim(), description, quantity: parseFloat(quantity) || 0, isFuel, cost: cost === "" ? null : parseFloat(cost), retail: retail === "" ? null : parseFloat(retail) })}>
@@ -329,4 +358,51 @@ function Badge({ children, kind }: { children: React.ReactNode; kind: "fuel" | "
     : kind === "manual" ? "bg-[var(--color-ok)]/10 text-[var(--color-ok)]"
     : "bg-[var(--color-brand-tint)] text-[var(--color-brand-dark)]";
   return <span className={`ml-2 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${cls}`}>{children}</span>;
+}
+
+
+/* ---------- part picker: choose an existing part on this model, or type a new one ---------- */
+function PartPicker({ value, catalog, onPick }: {
+  value: string; catalog: CatalogItem[];
+  onPick: (partNo: string, item?: CatalogItem) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function onDoc(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+  const query = q.trim().toLowerCase();
+  const filtered = (query
+    ? catalog.filter((c) => c.partNo.toLowerCase().includes(query) || c.description.toLowerCase().includes(query))
+    : catalog).slice(0, 60);
+  return (
+    <div ref={ref} className="relative">
+      <input
+        className="input input-sm font-mono w-full"
+        placeholder="Search a part, or type a new one"
+        value={open ? q : value}
+        onFocus={() => { setOpen(true); setQ(""); }}
+        onChange={(e) => { setQ(e.target.value); onPick(e.target.value); setOpen(true); }}
+      />
+      {open && (
+        <ul className="absolute z-30 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-[var(--color-line-strong)] bg-white py-1 shadow-lg">
+          {filtered.map((c) => (
+            <li key={c.partNo}
+              onMouseDown={(e) => { e.preventDefault(); onPick(c.partNo, c); setOpen(false); setQ(""); }}
+              className="cursor-pointer px-3 py-2 text-sm hover:bg-[var(--color-brand-tint)]">
+              <span className="font-mono text-xs text-[var(--color-ink)]">{c.partNo}</span>
+              {c.description && <span className="text-[var(--color-ink-3)]"> — {c.description}</span>}
+            </li>
+          ))}
+          {query && filtered.every((c) => c.partNo.toLowerCase() !== query) && (
+            <li className="px-3 py-2 text-xs text-[var(--color-ink-3)]">Not in the list? Just type the new part number and fill the description.</li>
+          )}
+          {filtered.length === 0 && !query && <li className="px-3 py-2 text-xs text-[var(--color-ink-3)]">No parts on this model yet.</li>}
+        </ul>
+      )}
+    </div>
+  );
 }

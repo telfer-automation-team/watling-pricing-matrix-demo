@@ -46,11 +46,6 @@ export default function ConfigPage() {
       </div>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
-        <Card title="Discounts on every quote" tag="global" desc="Taken off the parts on every quote automatically.">
-          <Row label="Lubricants discount" hint="oils, coolant, grease"><Pct value={rules.lubricantDiscount} onChange={(v) => set("lubricantDiscount", v)} /></Row>
-          <Row label="Other parts discount" hint="filters, elements, belts"><Pct value={rules.otherDiscount} onChange={(v) => set("otherDiscount", v)} /></Row>
-        </Card>
-
         <Card title="How much staff can discount" tag="limit" desc="A user can give a bigger discount for a customer on the Quote screen — but never more than this.">
           <Row label="Most they can take off lubricants"><Pct value={rules.maxLubricantDiscount} onChange={(v) => set("maxLubricantDiscount", v)} /></Row>
           <Row label="Most they can take off other parts"><Pct value={rules.maxOtherDiscount} onChange={(v) => set("maxOtherDiscount", v)} /></Row>
@@ -84,6 +79,11 @@ export default function ConfigPage() {
 
         <Card title="Service packages" tag="global" desc="When quoting several services ahead, add this much each year.">
           <Row label="Yearly price increase"><Pct value={rules.packageInflation} onChange={(v) => set("packageInflation", v)} /></Row>
+        </Card>
+
+        <Card title="Default discount on every quote (optional)" tag="global" desc="Off by default — every quote starts at 0% and staff apply a discount per job within the limits above. Set a value here only if you want a standing discount applied to every quote automatically.">
+          <Row label="Default lubricants discount"><Pct value={rules.lubricantDiscount} onChange={(v) => set("lubricantDiscount", v)} /></Row>
+          <Row label="Default other parts discount"><Pct value={rules.otherDiscount} onChange={(v) => set("otherDiscount", v)} /></Row>
         </Card>
       </div>
 
