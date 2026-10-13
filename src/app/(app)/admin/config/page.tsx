@@ -49,7 +49,7 @@ export default function ConfigPage() {
         <Card title="How much staff can discount" tag="limit" desc="A user can give a bigger discount for a customer on the Quote screen — but never more than this.">
           <Row label="Most they can take off lubricants"><Pct value={rules.maxLubricantDiscount} onChange={(v) => set("maxLubricantDiscount", v)} /></Row>
           <Row label="Most they can take off other parts"><Pct value={rules.maxOtherDiscount} onChange={(v) => set("maxOtherDiscount", v)} /></Row>
-          <Row label="Lowest labour they can charge" hint="stops a job being quoted below cost"><Money value={rules.minLabourRate} onChange={(v) => set("minLabourRate", v)} suffix="/hr" /></Row>
+          
           {capWarn && <Note tone="danger">A limit is lower than the standard discount above — raise it so staff can at least match the standard.</Note>}
         </Card>
 
