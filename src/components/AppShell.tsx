@@ -39,9 +39,8 @@ export default function AppShell({
   const items = NAV.filter((n) => !n.adminOnly || role === "admin");
 
   async function signOut() {
-    await fetch("/auth/signout", { method: "POST" });
-    router.push("/login");
-    router.refresh();
+    await fetch("/auth/signout", { method: "POST", cache: "no-store" });
+    window.location.replace("/login");
   }
 
   const initials = (fullName ?? email ?? "?")
