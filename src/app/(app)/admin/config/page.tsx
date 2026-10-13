@@ -81,10 +81,7 @@ export default function ConfigPage() {
           <Row label="Yearly price increase"><Pct value={rules.packageInflation} onChange={(v) => set("packageInflation", v)} /></Row>
         </Card>
 
-        <Card title="Default discount on every quote (optional)" tag="global" desc="Off by default — every quote starts at 0% and staff apply a discount per job within the limits above. Set a value here only if you want a standing discount applied to every quote automatically.">
-          <Row label="Default lubricants discount"><Pct value={rules.lubricantDiscount} onChange={(v) => set("lubricantDiscount", v)} /></Row>
-          <Row label="Default other parts discount"><Pct value={rules.otherDiscount} onChange={(v) => set("otherDiscount", v)} /></Row>
-        </Card>
+       
       </div>
 
       <div className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-3 card-soft">
