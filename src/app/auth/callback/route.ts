@@ -7,11 +7,21 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 // Emails that should be Admins (comma-separated in ADMIN_EMAILS). Everyone else = engineer.
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
 
+// Build the real public URL. Behind Railway's proxy, request.url is the internal
+// localhost:8080 address, so we prefer an explicit env var, then forwarded headers.
+function getBaseUrl(request: Request, fallbackOrigin: string) {
+  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const forwardedProto = request.headers.get("x-forwarded-proto") ?? "https";
+  if (forwardedHost) return `${forwardedProto}://${forwardedHost}`;
+  return fallbackOrigin;
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const origin = url.origin;
+  const baseUrl = getBaseUrl(request, url.origin);
   const code = url.searchParams.get("code");
-  if (!code) return NextResponse.redirect(`${origin}/login?error=missing_code`);
+  if (!code) return NextResponse.redirect(`${baseUrl}/login?error=missing_code`);
 
   const store = await cookies();
   const supabase = createServerClient(
@@ -26,7 +36,7 @@ export async function GET(request: Request) {
   );
 
   const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-  if (error || !data.user) return NextResponse.redirect(`${origin}/login?error=auth`);
+  if (error || !data.user) return NextResponse.redirect(`${baseUrl}/login?error=auth`);
 
   const user = data.user;
   const email = (user.email ?? "").toLowerCase();
@@ -41,7 +51,7 @@ export async function GET(request: Request) {
     if (prof?.role === "admin" || ADMIN_EMAILS.includes(email)) role = "admin";
   } catch { /* profiles optional */ }
 
-  if (banned) return NextResponse.redirect(`${origin}/login?error=banned`);
+  if (banned) return NextResponse.redirect(`${baseUrl}/login?error=banned`);
 
   // record the user so they appear on the admin Users page
   try {
@@ -53,7 +63,7 @@ export async function GET(request: Request) {
     httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 30,
   });
 
-  return NextResponse.redirect(`${origin}/quote`);
+  return NextResponse.redirect(`${baseUrl}/quote`);
 }
 
 export const dynamic = "force-dynamic";
